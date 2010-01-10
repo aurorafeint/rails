@@ -697,7 +697,9 @@ module ActiveRecord
       # Configuration options:
       # * <tt>:message</tt> - Specifies a custom error message (default is: "has already been taken").
       # * <tt>:scope</tt> - One or more columns by which to limit the scope of the uniqueness constraint.
-      # * <tt>:case_sensitive</tt> - Looks for an exact match. Ignored by non-text columns (+true+ by default).
+      # * <tt>:case_sensitive</tt> - Set to true to look for an exact match or false to look for a
+      #   case insensitive match. Can also be set to :db to use the databases case-sensitivity mode for the column.
+      #   Ignored by non-text columns (+:db+ by default).
       # * <tt>:allow_nil</tt> - If set to true, skips this validation if the attribute is +nil+ (default is +false+).
       # * <tt>:allow_blank</tt> - If set to true, skips this validation if the attribute is blank (default is +false+).
       # * <tt>:if</tt> - Specifies a method, proc or string to call to determine if the validation should
@@ -771,7 +773,7 @@ module ActiveRecord
       #   will have to parse the (database-specific) exception message to detect
       #   such a case.
       def validates_uniqueness_of(*attr_names)
-        configuration = { :case_sensitive => true }
+        configuration = { :case_sensitive => :db }
         configuration.update(attr_names.extract_options!)
 
         validates_each(attr_names,configuration) do |record, attr_name, value|
@@ -795,6 +797,11 @@ module ActiveRecord
             comparison_operator = "IS ?"
           elsif column.text?
             comparison_operator = "#{connection.case_sensitive_equality_operator} ?"
+            if configuration[:case_sensitive] == :db
+              comparison_operator = "= ?"
+            else
+              comparison_operator = "#{connection.case_sensitive_equality_operator} ?"
+            end
             value = column.limit ? value.to_s.mb_chars[0, column.limit] : value.to_s
           else
             comparison_operator = "= ?"

@@ -509,7 +509,25 @@ class ValidationsTest < ActiveRecord::TestCase
     assert !t3.errors.on(:parent_id)
     assert_not_equal "has already been taken", t3.errors.on(:title)
   end
-
+  
+  def test_validate_db_case_sensitive_uniqueness
+    Topic.validates_uniqueness_of(:title, :case_sensitive => :db, :allow_nil => true)
+  
+    t = Topic.new(:title => "I'm unique!")
+    assert t.save, "Should save t"
+  
+    db_case_insensitive = Topic.find_all_by_id_and_title(t.id, "I'm UNIQUE!").any?
+    
+    t2 = Topic.new(:title => db_case_insensitive ? "I'm UNIQUE!" : "I'm unique!")
+    assert !t2.valid?, "Shouldn't be valid"
+    assert !t2.save, "Shouldn't save t2 as unique"
+    assert t2.errors[:title].any?, "Should be errors for title"
+    assert_equal "has already been taken", t2.errors[:title]
+      
+    t3 = Topic.new(:title => db_case_insensitive ? "I'm truly UNIQUE!" : "I'm UNIQUE!")
+    assert t3.save, "Should save t3"
+  end
+  
   def test_validate_case_sensitive_uniqueness_with_attribute_passed_as_integer
     Topic.validates_uniqueness_of(:title, :case_sensitve => true)
     t = Topic.create!('title' => 101)
